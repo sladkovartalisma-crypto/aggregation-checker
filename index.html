@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Проверка агрегации товаров</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png">
+</head>
+<body>
+    <div class="container">
+        <!-- Навигация -->
+        <nav class="navbar">
+            <button class="nav-btn active" onclick="showSection('check')">
+                <span>🔍 Проверка</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('data')">
+                <span>📊 Данные</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('assembly')">
+                <span>📦 Сборка</span>
+            </button>
+            <button class="nav-btn" onclick="showSection('report')">
+                <span>📋 Отчет</span>
+            </button>
+        </nav>
+
+        <!-- Секция проверки -->
+        <section id="check-section" class="section active">
+            <div class="check-header">
+                <h2>Проверка агрегации</h2>
+                <div class="check-status">
+                    <span id="checkStatus">Ожидание сканирования</span>
+                </div>
+            </div>
+
+            <div class="current-state">
+                <div class="state-item">
+                    <span class="state-label">Текущая паллета:</span>
+                    <span class="state-value" id="currentPallet">Не отсканирована</span>
+                </div>
+                <div class="state-item">
+                    <span class="state-label">Текущий короб:</span>
+                    <span class="state-value" id="currentBox">Не отсканирован</span>
+                </div>
+                <div class="state-item">
+                    <span class="state-label">Отсканировано товаров:</span>
+                    <span class="state-value" id="scannedItemsCount">0</span>
+                </div>
+            </div>
+
+            <div class="scanner-section">
+                <div class="scanner-controls">
+                    <button id="startScannerCheck" class="btn-primary" onclick="startScannerCheck()">
+                        <span>📷 Запустить сканер</span>
+                    </button>
+                    <button id="stopScannerCheck" class="btn-secondary" onclick="stopScannerCheck()" style="display: none;">
+                        <span>⏹️ Остановить</span>
+                    </button>
+                </div>
+
+                <div id="readerCheck" class="scanner-viewport">
+                    <div class="scanner-frame">
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                    </div>
+                    <div class="scanner-overlay">
+                        <p id="scannerHintCheck">Нажмите "Запустить сканер"</p>
+                    </div>
+                </div>
+
+                <div class="manual-input">
+                    <input type="text" id="manualInputCheck" placeholder="Введите код вручную" onkeypress="handleManualInputCheck(event)">
+                    <button onclick="processManualInputCheck()" class="btn-secondary">Отправить</button>
+                    <button onclick="clearManualInput('manualInputCheck')" class="btn-secondary" title="Очистить поле">Очистить</button>
+                </div>
+            </div>
+
+            <div class="check-instructions">
+                <div class="instruction-card">
+                    <h4>Инструкция:</h4>
+                    <ul>
+                        <li><strong>📦 Сканируйте паллету</strong> → установится текущая паллета</li>
+                        <li><strong>📁 Сканируйте короб</strong> этой паллеты → начнется сканирование товаров</li>
+                        <li><strong>🏷️ Сканируйте товары</strong> → они добавляются в список</li>
+                        <li><strong>🔄 Снова отсканируйте тот же короб</strong> → выход из короба (ожидание другого короба)</li>
+                        <li><strong>📦 Отсканируйте другую паллету</strong> → полный сброс и новая проверка</li>
+                    </ul>
+                    <p class="small-text" style="margin-top: 15px; color: #666;">
+                        <strong>📝 Примечание:</strong> Состояние проверки автоматически сохраняется каждые 30 секунд
+                    </p>
+                </div>
+            </div>
+
+            <div class="scanned-items">
+                <h3>Отсканированные товары в текущем коробе</h3>
+                <div class="items-list" id="scannedItemsList">
+                    <p class="empty-message">Товары еще не отсканированы</p>
+                </div>
+            </div>
+
+            <div class="check-actions">
+                <button onclick="resetCheck()" class="btn-danger">
+                    <span>🔄 Сбросить проверку</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Секция данных -->
+        <section id="data-section" class="section">
+            <div class="data-header">
+                <h2>Управление данными</h2>
+            </div>
+
+            <div class="data-info">
+                <div class="info-card">
+                    <h3>Текущие данные</h3>
+                    <p>Паллет: <span id="dataPallets">0</span></p>
+                    <p>Коробов: <span id="dataBoxes">0</span></p>
+                    <p>КМ товаров: <span id="dataKMs">0</span></p>
+                    <p>Дата загрузки: <span id="dataDate">Не загружено</span></p>
+                </div>
+            </div>
+
+            <div class="data-upload">
+                <h3>Загрузка CSV файла</h3>
+                <div class="upload-area" id="dropArea">
+                    <div class="upload-icon">📁</div>
+                    <p id="fileName">Перетащите CSV файл сюда</p>
+                    <p class="upload-note">Формат: табуляция между колонками</p>
+                    <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Выбрать CSV файл
+                    </button>
+                    <input type="file" id="fileInput" accept=".csv,.txt" style="display: none;">
+                </div>
+                
+                <div class="file-format">
+                    <h4>Формат CSV:</h4>
+                    <p>Колонки разделенные табуляцией:</p>
+                    <ul>
+                        <li>КМ (с криптохвостом)</li>
+                        <li>SSCC 1 (короб)</li>
+                        <li>SSCC 2 (паллета)</li>
+                        <li>Дата производства</li>
+                        <li>Срок годности</li>
+                    </ul>
+                </div>
+
+                <div class="data-actions">
+                    <button onclick="processUploadedFile()" class="btn-success" id="processBtn" disabled>
+                        📥 Обработать файл
+                    </button>
+                    <button onclick="clearAllData()" class="btn-danger">
+                        🗑️ Очистить данные
+                    </button>
+                </div>
+            </div>
+
+            <div class="data-preview">
+                <h3>Предпросмотр (первые 10 строк)</h3>
+                <div class="preview-table-container">
+                    <table class="preview-table" id="dataPreview">
+                        <thead>
+                            <tr>
+                                <th>КМ</th>
+                                <th>Короб</th>
+                                <th>Паллета</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Данные будут добавлены динамически -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Секция сборки -->
+        <section id="assembly-section" class="section">
+            <div class="assembly-header">
+                <h2>Сборка</h2>
+                <div class="assembly-subtitle">
+                    Поиск информации по кодам агрегации
+                </div>
+            </div>
+
+            <div class="scanner-section">
+                <div class="scanner-controls">
+                    <button id="startScannerAssembly" class="btn-primary" onclick="startScannerAssembly()">
+                        <span>📷 Запустить сканер</span>
+                    </button>
+                    <button id="stopScannerAssembly" class="btn-secondary" onclick="stopScannerAssembly()" style="display: none;">
+                        <span>⏹️ Остановить</span>
+                    </button>
+                </div>
+
+                <div id="readerAssembly" class="scanner-viewport">
+                    <div class="scanner-frame">
+                        <div class="corner top-left"></div>
+                        <div class="corner top-right"></div>
+                        <div class="corner bottom-left"></div>
+                        <div class="corner bottom-right"></div>
+                    </div>
+                    <div class="scanner-overlay">
+                        <p id="scannerHintAssembly">Нажмите "Запустить сканер"</p>
+                    </div>
+                </div>
+
+                <div class="manual-input">
+                    <input type="text" id="manualInputAssembly" placeholder="Введите код вручную" onkeypress="handleManualInputAssembly(event)">
+                    <button onclick="processManualInputAssembly()" class="btn-secondary">Отправить</button>
+                    <button onclick="clearManualInput('manualInputAssembly')" class="btn-secondary" title="Очистить поле">Очистить</button>
+                </div>
+            </div>
+
+            <div class="assembly-info-container">
+                <div class="assembly-info" id="assemblyInfo">
+                    <div class="empty-assembly">
+                        <div class="empty-icon">🔍</div>
+                        <p>Отсканируйте код или введите его вручную</p>
+                        <p class="small-text">Можно сканировать паллету, короб или товар</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="assembly-examples">
+                <h4>Что можно сканировать:</h4>
+                <div class="examples-grid">
+                    <div class="example-card">
+                        <div class="example-icon">📦</div>
+                        <h5>Паллета</h5>
+                        <p>Покажет все короба и количество товаров</p>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-icon">📁</div>
+                        <h5>Короб</h5>
+                        <p>Покажет паллету и количество товаров</p>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-icon">🏷️</div>
+                        <h5>Товар (КМ)</h5>
+                        <p>Покажет короб и паллету</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Секция отчетов -->
+        <section id="report-section" class="section">
+            <div class="report-header">
+                <h2>Отчеты и статистика</h2>
+                <div class="report-subtitle">
+                    История проверок и формирование отчетов
+                </div>
+            </div>
+
+            <div class="report-content" id="reportContent">
+                <!-- Содержимое отчета будет заполнено динамически -->
+                <div class="empty-message">
+                    <div class="empty-icon">📋</div>
+                    <p>Нет данных для отчета</p>
+                    <p class="small-text">Загрузите файл данных во вкладке "Данные"</p>
+                </div>
+            </div>
+
+            <div class="report-actions">
+                <button onclick="generateReport()" class="btn-primary">
+                    <span>📄 Сформировать отчет</span>
+                </button>
+                <button onclick="clearHistory()" class="btn-secondary">
+                    <span>🗑️ Очистить историю</span>
+                </button>
+            </div>
+
+            <div class="report-instructions">
+                <div class="instruction-card">
+                    <h4>О системе отчетности:</h4>
+                    <ul>
+                        <li><strong>📝 Автосохранение</strong> - состояние проверки сохраняется автоматически каждые 30 секунд</li>
+                        <li><strong>🔄 Завершение проверки</strong> - при загрузке нового файла текущая проверка сохраняется в историю</li>
+                        <li><strong>📊 Имя отчета</strong> - формируется автоматически на основе имени файла данных и даты</li>
+                        <li><strong>📈 История проверок</strong> - сохраняются последние 50 проверок</li>
+                        <li><strong>📂 Формат отчета</strong> - текстовый файл с подробной статистикой</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Уведомления -->
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <!-- Библиотеки -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="app.js"></script>
+    <script src="scanner.js"></script>
+    <script src="memory-optimizer.js"></script>
+</body>
+</html>
